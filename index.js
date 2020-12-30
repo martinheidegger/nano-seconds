@@ -20,11 +20,11 @@ function nanoseconds() {
 }
 
 /**
- * The hrtime function for browser
+ * hrtime from window.performance.now
  *
  * @returns {Array} [Sceonds, NanoSeconds]
  */
-function browserHrtime() {
+function performanceHrtime() {
   const current = Math.floor(window.performance.now() * 1e6);
   const currentSeconds = Math.floor(current / 1e9);
   const currentNanoseconds = current % 1e9;
@@ -34,17 +34,12 @@ function browserHrtime() {
   ];
 }
 
-
 /**
- * Get the hrtime
+ * hrtime from Date.now()
  *
  * @returns {Array} [Seconds, NanoSeconds]
  */
-function getHrtime() {
-  /* eslint no-undef:0 */
-  if (window && window.performance && window.performance.now) {
-    return browserHrtime();
-  }
+function dateHrTime () {
   const current = Date.now();
   const currentSeconds = Math.floor(current / 1000);
   const currentNanoseconds = ((current % 1000) * 1e6) + nanoseconds();
@@ -54,38 +49,38 @@ function getHrtime() {
   ];
 }
 
-
 /**
  * Custom function of hrtime
  *
  * @param {Array} time The start time of hrtime
  * @returns {Array} [Seconds, NanoSeconds]
  */
-function customHrtime(time) {
-  const arr = getHrtime();
-  const currentSeconds = arr[0];
-  const currentNanoseconds = arr[1];
-  if (!time) {
+function customHrtime(getHrTime) {
+  return function hrtime(time) {
+    const current = getHrtime();
+    if (!time) {
+      return current;
+    }
+    let offsetSeconds = current[0] - time[0];
+    let offsetNanoseconds = current[1] - time[1];
+    if (offsetNanoseconds < 0) {
+      offsetNanoseconds += 1e9;
+      offsetSeconds -= 1;
+    }
     return [
-      currentSeconds,
-      currentNanoseconds,
+      offsetSeconds,
+      offsetNanoseconds,
     ];
   }
-  let offsetSeconds = currentSeconds - time[0];
-  let offsetNanoseconds = currentNanoseconds - time[1];
-  if (offsetNanoseconds < 0) {
-    offsetNanoseconds += 1e9;
-    offsetSeconds -= 1;
-  }
-  return [
-    offsetSeconds,
-    offsetNanoseconds,
-  ];
 }
 
-const hrtime = (process && process.hrtime) || customHrtime;
+const hrtime = (process && process.hrtime)
+  || customHrtime(
+    (window && window.performance && window.performance.now)
+      ? performanceHrtime
+      : dateHrTime
+  );
 const start = hrtime();
-
 
 /**
  * Get the current time with nanoseconds
